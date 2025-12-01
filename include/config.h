@@ -19,10 +19,10 @@
 // GSM/GPRS CONFIGURATION
 // ============================================
 
-// SIM Card APN Settings (Update based on your carrier)
-#define APN "internet" // Your carrier APN
-#define GPRS_USER ""   // Usually empty for most carriers
-#define GPRS_PASS ""   // Usually empty for most carriers
+// SIM Card APN Settings - Tunisie Telecom
+#define APN "internet.tn" // Tunisie Telecom APN
+#define GPRS_USER ""      // Usually empty for most carriers
+#define GPRS_PASS ""      // Usually empty for most carriers
 
 // ============================================
 // MQTT CONFIGURATION

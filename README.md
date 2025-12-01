@@ -61,6 +61,7 @@ Edit `include/config.h` with your carrier's APN settings:
 ```
 
 **Common APN Settings**:
+- **Tunisie Telecom**: `internet.tn` (configured)
 - Orange Morocco: `internet.ma`
 - Maroc Telecom: `www.mtds.ma`
 - Inwi: `www.inwi.ma`
