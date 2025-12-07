@@ -20,8 +20,11 @@ public:
   GSMModule();
   ~GSMModule();
 
-  // Initialize GSM module
-  bool begin();
+  // Initialize GSM module with dedicated UART
+  bool begin(HardwareSerial *serial);
+
+  // Hardware reset using reset pin
+  void hardwareReset();
 
   // Connect to GPRS network
   bool connectGPRS();
@@ -43,6 +46,9 @@ public:
 
   // Check if modem is responding
   bool isModemReady();
+
+  // Check antenna connection and signal quality
+  bool checkAntennaConnection();
 
   // Restart modem
   void restart();

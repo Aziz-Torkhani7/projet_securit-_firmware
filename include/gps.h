@@ -12,13 +12,12 @@ private:
   bool isInitialized;
 
   unsigned long lastValidDataTime;
-  const unsigned long GPS_TIMEOUT = 10000; // 10 seconds timeout
 
 public:
   GPSModule();
 
-  // Initialize GPS module
-  bool begin();
+  // Initialize GPS module with dedicated UART
+  bool begin(HardwareSerial *serial);
 
   // Update GPS data (call frequently in loop)
   void update();
@@ -40,6 +39,9 @@ public:
 
   // Get number of satellites
   int getSatellites();
+
+  // Get number of characters processed by GPS
+  unsigned long getCharsProcessed();
 
   // Get GPS date/time
   String getDateTime();

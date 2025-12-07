@@ -12,6 +12,8 @@ private:
   GSMModule *gsmModule;
   bool isConnected;
   unsigned long lastReconnectAttempt;
+  unsigned long reconnectInterval; // Current backoff interval
+  int reconnectAttempts;           // Track consecutive failures
 
   // MQTT callback for incoming messages
   static void messageCallback(char *topic, byte *payload, unsigned int length);

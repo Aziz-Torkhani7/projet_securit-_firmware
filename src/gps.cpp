@@ -1,17 +1,16 @@
 #include "gps.h"
 
-GPSModule::GPSModule() : isInitialized(false), lastValidDataTime(0) {
-  gpsSerial = new HardwareSerial(1); // Use UART1
-}
+GPSModule::GPSModule()
+    : isInitialized(false), lastValidDataTime(0), gpsSerial(nullptr) {}
 
-bool GPSModule::begin() {
-  DEBUG_PRINTLN("Initializing GPS module...");
+bool GPSModule::begin(HardwareSerial *serial) {
+  DEBUG_PRINTLN("Setting up GPS module...");
 
-  gpsSerial->begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
-  delay(100);
+  gpsSerial = serial;
+  // UART is already initialized in main.cpp
 
   isInitialized = true;
-  DEBUG_PRINTLN("GPS module initialized");
+  DEBUG_PRINTLN("   GPS module ready");
 
   return true;
 }
@@ -20,12 +19,15 @@ void GPSModule::update() {
   if (!isInitialized)
     return;
 
-  while (gpsSerial->available() > 0) {
+  // Read available GPS data
+  unsigned long startTime = millis();
+  while (gpsSerial->available() > 0 &&
+         (millis() - startTime) < GPS_READ_DURATION_MS) {
     char c = gpsSerial->read();
     gps.encode(c);
 
-// Debug: Print raw NMEA data
-#if ENABLE_DEBUG
+// Debug: Print raw NMEA data (optional, can be disabled for performance)
+#if ENABLE_DEBUG && 0 // Set to 1 to enable NMEA output
     DEBUG_SERIAL.write(c);
 #endif
   }
@@ -41,8 +43,8 @@ bool GPSModule::hasValidLocation() {
     return false;
 
   return gps.location.isValid() &&
-         gps.location.age() < 2000 && // Data less than 2 seconds old
-         (millis() - lastValidDataTime) < GPS_TIMEOUT;
+         gps.location.age() <
+             GPS_DATA_MAX_AGE_MS; // Data less than 2 seconds old
 }
 
 double GPSModule::getLatitude() {
@@ -80,6 +82,8 @@ int GPSModule::getSatellites() {
   return 0;
 }
 
+unsigned long GPSModule::getCharsProcessed() { return gps.charsProcessed(); }
+
 String GPSModule::getDateTime() {
   if (gps.date.isValid() && gps.time.isValid()) {
     char datetime[32];
@@ -105,5 +109,5 @@ String GPSModule::getLocationJSON() {
 }
 
 bool GPSModule::isReady() {
-  return isInitialized && gps.charsProcessed() > 100;
+  return isInitialized && gps.charsProcessed() > GPS_MIN_CHARS_PROCESSED;
 }

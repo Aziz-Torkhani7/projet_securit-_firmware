@@ -1,7 +1,8 @@
 #include "mqtt_client.h"
 
 MQTTClientModule::MQTTClientModule(GSMModule *gsm)
-    : gsmModule(gsm), isConnected(false), lastReconnectAttempt(0) {
+    : gsmModule(gsm), isConnected(false), lastReconnectAttempt(0),
+      reconnectInterval(MQTT_RECONNECT_INTERVAL), reconnectAttempts(0) {
   mqttClient = nullptr;
 }
 
@@ -19,6 +20,12 @@ bool MQTTClientModule::begin() {
 
   DEBUG_PRINTLN("Initializing MQTT client...");
 
+  // Prevent memory leak - check if already created
+  if (mqttClient != nullptr) {
+    DEBUG_PRINTLN("MQTT client already initialized, reusing...");
+    return true;
+  }
+
   // Create MQTT client with GSM client
   mqttClient = new PubSubClient(*gsmModule->getClient());
 
@@ -29,7 +36,7 @@ bool MQTTClientModule::begin() {
   mqttClient->setCallback(messageCallback);
 
   // Increase buffer size for larger messages
-  mqttClient->setBufferSize(512);
+  mqttClient->setBufferSize(MQTT_BUFFER_SIZE);
 
   DEBUG_PRINTLN("MQTT client initialized");
 
@@ -62,6 +69,10 @@ bool MQTTClientModule::connect() {
   if (connected) {
     DEBUG_PRINTLN("MQTT connected!");
     isConnected = true;
+
+    // Reset backoff on successful connection
+    reconnectAttempts = 0;
+    reconnectInterval = MQTT_RECONNECT_INTERVAL;
 
     // Publish connection status
     publishStatus("{\"status\":\"connected\",\"device\":\"" MQTT_CLIENT_ID
@@ -142,27 +153,49 @@ void MQTTClientModule::loop() {
 }
 
 bool MQTTClientModule::reconnect() {
-  // Don't attempt to reconnect too frequently
+  // Don't attempt to reconnect too frequently (use exponential backoff)
   unsigned long now = millis();
-  if (now - lastReconnectAttempt < MQTT_RECONNECT_INTERVAL) {
+  if (now - lastReconnectAttempt < reconnectInterval) {
     return false;
   }
 
   lastReconnectAttempt = now;
+  reconnectAttempts++;
 
-  DEBUG_PRINTLN("Attempting MQTT reconnection...");
+  DEBUG_PRINT("Attempting MQTT reconnection (attempt ");
+  DEBUG_PRINT(reconnectAttempts);
+  DEBUG_PRINTLN(")...");
 
   // First ensure GPRS is connected
   if (!gsmModule->isGPRSConnected()) {
     DEBUG_PRINTLN("GPRS not connected, attempting to connect...");
     if (!gsmModule->connectGPRS()) {
       DEBUG_PRINTLN("GPRS connection failed!");
+
+      // Increase backoff interval (exponential backoff with cap)
+      reconnectInterval = min(reconnectInterval * 2,
+                              (unsigned long)MQTT_RECONNECT_MAX_INTERVAL);
+      DEBUG_PRINT("Next retry in ");
+      DEBUG_PRINT(reconnectInterval / 1000);
+      DEBUG_PRINTLN(" seconds");
+
       return false;
     }
   }
 
   // Then connect to MQTT
-  return connect();
+  bool result = connect();
+
+  if (!result) {
+    // Increase backoff interval on failure
+    reconnectInterval =
+        min(reconnectInterval * 2, (unsigned long)MQTT_RECONNECT_MAX_INTERVAL);
+    DEBUG_PRINT("Next retry in ");
+    DEBUG_PRINT(reconnectInterval / 1000);
+    DEBUG_PRINTLN(" seconds");
+  }
+
+  return result;
 }
 
 void MQTTClientModule::messageCallback(char *topic, byte *payload,
